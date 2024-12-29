@@ -1,0 +1,4 @@
+./BiT-M-R50x1.npz
+./log_*
+./test_model
+./test.py

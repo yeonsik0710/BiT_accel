@@ -214,7 +214,7 @@ def get_T(max_values_tensor, warm_up):
     if (epsilon < 0.1):
       return epsilon, mean
     else:
-      T_delta = final * epsilon
+      T_delta = final * epsilon * 1.2
       return epsilon, final + T_delta
 
 

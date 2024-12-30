@@ -215,7 +215,7 @@ def get_T(max_values_tensor, warm_up):
       return epsilon, mean
     else:
       T_delta = final * epsilon
-      return epsilon, mean + T_delta
+      return epsilon, final + T_delta
 
 
 def main(args):

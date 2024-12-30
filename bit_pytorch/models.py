@@ -115,7 +115,7 @@ class CustomConv2dFunction(Function):
         if (steps < warmup_step):
             # 각 레이어별 global_accum_c_max_values 초기화
             if layer_id not in global_accum_c_max_values:
-                global_accum_c_max_values[layer_id] = torch.empty(20000, device=grad_output.device) # for_dist
+                global_accum_c_max_values[layer_id] = torch.empty(warmup_step, device=grad_output.device)
 
             # # 모니터링
             # if (steps != 0) and ((steps % 10) == 0):

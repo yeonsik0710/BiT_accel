@@ -198,9 +198,6 @@ def moving_average(data):
 
 
 def get_T(max_values_tensor, warm_up):
-    # # scale value
-    # k = torch.tensor(0.5, dtype=max_values_tensor.dtype, device=max_values_tensor.device)
-
     # moving avg 적용
     smoothed_max_values = moving_average(max_values_tensor)
 
@@ -214,9 +211,8 @@ def get_T(max_values_tensor, warm_up):
     if (epsilon < 0.1):
       return epsilon, mean
     else:
-      T_delta = final * epsilon * 1.2
+      T_delta = final * 0.2
       return epsilon, final + T_delta
-
 
 def main(args):
   logger = bit_common.setup_logger(args)
@@ -225,7 +221,7 @@ def main(args):
   # Only good if sizes stay the same within the main loop!
   torch.backends.cudnn.benchmark = True
 
-  device_id = 3
+  device_id = 0
   device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
   logger.info(f"Going to train on {device}")
 

@@ -39,8 +39,6 @@ sys.path.append('/data/DNN_data/pytorch-fgvc-dataset')
 print(sys.path)
 import cub2011
 
-import deeplake
-
 def topk(output, target, ks=(1,)):
   """Returns one boolean vector for each k, whether the target is within the output's top-k."""
   _, pred = output.topk(max(ks), 1, True, True)
@@ -91,7 +89,8 @@ def mktrainval(args, logger):
     train_set = tv.datasets.StanfordCars(args.datadir, transform=train_tx, split='train', download=False)
     valid_set = tv.datasets.StanfordCars(args.datadir, transform=val_tx, split='test', download=False)
   elif args.dataset == 'wikiart':
-    ds = deeplake.load('hub://activeloop/wiki-art')
+    train_set = tv.datasets.ImageFolder(pjoin(args.datadir, "train"), train_tx)
+    valid_set = tv.datasets.ImageFolder(pjoin(args.datadir, "val"), val_tx)
 
     # save_directory = os.path.expanduser('/home/data/DNN_data/wikiart_ds/')
 
@@ -204,15 +203,15 @@ def get_T(max_values_tensor, warm_up):
     initial = smoothed_max_values[warm_up - 51]
     final = smoothed_max_values[-1]
     diff = (final - initial)
-    epsilon = diff / initial 
-    mean = (initial + final) / 2
+    epsilon = diff / initial
+    mean = torch.mean(smoothed_max_values)
 
     # 수렴 판단 기준(10% 증가)
     if (epsilon < 0.1):
       return epsilon, mean
     else:
-      T_delta = final * 0.2
-      return epsilon, final + T_delta
+      T_delta = mean * 1.4
+      return epsilon, mean + T_delta
 
 def main(args):
   logger = bit_common.setup_logger(args)
@@ -221,7 +220,7 @@ def main(args):
   # Only good if sizes stay the same within the main loop!
   torch.backends.cudnn.benchmark = True
 
-  device_id = 0
+  device_id = 3
   device = torch.device(f"cuda:{device_id}" if torch.cuda.is_available() else "cpu")
   logger.info(f"Going to train on {device}")
 
@@ -508,16 +507,17 @@ def main(args):
           accum_c_max_values = models.get_max_tensor() # 리스트 받아오기
 
           for layer_id, max_values_tensor in accum_c_max_values.items():
-              # # max_values NPZ 파일로 압축하여 저장
-              # save_path = pjoin(args.logdir, args.name, 'max_values', f"max_values_{layer_id}.npz")
-              # np.savez(save_path, data=accum_c_max_values[layer_id].cpu().numpy())
+              # max_values NPZ 파일로 압축하여 저장
+              os.makedirs(pjoin(args.logdir, args.name, 'max_values'), exist_ok=True)
+              save_path = pjoin(args.logdir, args.name, 'max_values', f"max_values_{layer_id}.npz")
+              np.savez(save_path, data=accum_c_max_values[layer_id].cpu().numpy())
               print(f"max_values_tensor: {max_values_tensor.shape}")
               epsilon, threshold = get_T(max_values_tensor, warmup_step)
 
               # 각 레이어의 T 값을 설정
               for module in model.modules():
                   if isinstance(module, models.CustomConv2d) and module.layer_id == layer_id:
-                      module.T = threshold # avg value로 thresholding 적용
+                      module.T = 0 # baseline 교체체
                       # module.T = 0 # Thresholding 생략
                       logger.info(f"Set T for layer {layer_id} to {module.T} and epsilon: {epsilon}") # 모니터링
 

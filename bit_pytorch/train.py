@@ -197,21 +197,26 @@ def moving_average(data):
 
 
 def get_T(max_values_tensor, warm_up):
+    """
+      Warm-up stage 전체의 평균을 이용.
+      수렴 판단 기준은 (warm-up - 50) step의 10% 미만인 경우
+    """
     # moving avg 적용
     smoothed_max_values = moving_average(max_values_tensor)
 
-    initial = smoothed_max_values[warm_up - 51]
+    initial = smoothed_max_values[warm_up - 50]
     final = smoothed_max_values[-1]
     diff = (final - initial)
     epsilon = diff / initial
-    mean = torch.mean(smoothed_max_values)
+    mean = torch.mean(smoothed_max_values[warm_up - 50:])
+    mean_full = torch.mean(smoothed_max_values)
 
     # 수렴 판단 기준(10% 증가)
     if (epsilon < 0.1):
-      return epsilon, mean
+      return epsilon, mean * 0.9
     else:
-      T_delta = mean * 1.4
-      return epsilon, mean + T_delta
+      T_delta = mean_full * 0.3
+      return epsilon, mean_full + T_delta
 
 def main(args):
   logger = bit_common.setup_logger(args)
@@ -507,7 +512,7 @@ def main(args):
           accum_c_max_values = models.get_max_tensor() # 리스트 받아오기
 
           for layer_id, max_values_tensor in accum_c_max_values.items():
-              # max_values NPZ 파일로 압축하여 저장
+              # Warm-up stage distribution 저장
               os.makedirs(pjoin(args.logdir, args.name, 'max_values'), exist_ok=True)
               save_path = pjoin(args.logdir, args.name, 'max_values', f"max_values_{layer_id}.npz")
               np.savez(save_path, data=accum_c_max_values[layer_id].cpu().numpy())
@@ -517,7 +522,7 @@ def main(args):
               # 각 레이어의 T 값을 설정
               for module in model.modules():
                   if isinstance(module, models.CustomConv2d) and module.layer_id == layer_id:
-                      module.T = 0 # baseline 교체체
+                      module.T = threshold # baseline 교체체
                       # module.T = 0 # Thresholding 생략
                       logger.info(f"Set T for layer {layer_id} to {module.T} and epsilon: {epsilon}") # 모니터링
 
